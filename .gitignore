@@ -1,4 +1,9 @@
 /__pycache__/
+/model/__pycache__/
+/controller/__pycache__/
+/view/__pycache__/
+/tests/__pycache__/
 /.venv/
+/data/
 
 
