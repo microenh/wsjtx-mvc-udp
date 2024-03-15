@@ -1,10 +1,13 @@
 import socket
 from struct import pack
 from threading import Thread
-from library.manager import manager
+from model.model import model
+from model.event import ProcessID, Callback
 
-class UDPServerBase:
-    def __init__(self, address):
+class UDPServerController:
+    def __init__(self, id_, address, send_event):
+        self.id_ = id_
+        model.add_event_listener(send_event, self.send)
         self.addr = None
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -21,6 +24,9 @@ class UDPServerBase:
             host = ''
         self.sock.bind(address)
 
+    def report(self, open_):
+        model.notify_state(self.id_, open_)
+
     def start(self):
         self.thread.start()
 
@@ -28,22 +34,22 @@ class UDPServerBase:
         if self.addr is not None:
             self.sock.sendto(data, self.addr)
 
-    def push(self, id_, data=None):
-        manager.push(id_, data)
-
     def stop(self):
         self.thread.join()
         
     def run(self):
         self.report(True)
-        while manager.running:
+        while model.running:
             try:
                 data, self.addr = self.sock.recvfrom(1024)
-                # print(data)
-                # print()
                 self.process(data)
             except TimeoutError:
                 # print('timeout')
                 continue
         self.report(False)
 
+if __name__ == '__main__':
+    wsjtx = UDPServerControler(ProcessID.WSJTX,
+                               model.settings.wsjtx_address,
+                               Callback.WSJTX_SEND)
+    wsjtx.start()

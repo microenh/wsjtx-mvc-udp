@@ -6,15 +6,16 @@ try:
     from settings import Settings
     from wsjtx_db import WsjtxDb
     from utility import grid_square
+    from event import ProcessID, Callback
+    from tx_msg import heartbeat
 except ModuleNotFoundError:
     from model.settings import Settings
     from model.wsjtx_db import WsjtxDb
     from model.utility import grid_square
+    from model.event import ProcessID, Callback
+    from model.tx_msg import heartbeat, reply, halt_tx, location
 
 class _Model:
-    _MAIN_ID = 'main'
-    _GPS_ID = 'gps'
-    
     def  __init__(self):
         self.message = ''
         self.settings = Settings()
@@ -24,8 +25,16 @@ class _Model:
         self.queue = Queue()
         self._event_listeners = {}
 
+    def notify_quit(self):
+        self.trigger_event(Callback.QUIT)
+
     def notify_state(self, id_, open_):
-        print(f'notify: {id_} open: {open_}\n')
+        match id_:
+            case ProcessID.GPS:
+                self.trigger_event(Callback.GPS_OPEN, open_)
+            case ProcessID.WSJTX:
+                print('WSJTX: %s' % ('open' if open_ else 'close'))
+            
 
     def add_event_listener(self, event, fn):
         try:
@@ -39,7 +48,7 @@ class _Model:
         except KeyError:
             pass
 
-    def trigger_event(self, event, data):
+    def trigger_event(self, event, data=None):
         try:
             for fn in self._event_listeners[event]:
                 fn(data)
@@ -69,14 +78,14 @@ class _Model:
                 int(self.settings.config['default']['main_y']),
                 self.settings.config['default']['theme'])
 
-
     def do_call(self, msg):
         """ activate call in WSJT-X """
-        pass
+        self.trigger_event(Callback.WSJTX_SEND, reply(msg))
 
     def abort_tx(self):
         """ abort Tx in WSJT-X """
-        pass
+        self.trigger_event(Callback.WSJTX_SEND, halt_tx(True))
+        self.trigger_event(Callback.WSJTX_SEND, halt_tx(False))
 
     def set_time(self):
         """ set current system time to GPS time """
@@ -84,13 +93,14 @@ class _Model:
 
     def set_grid(self):
         """ set WSJT-X grid to GPS grid """
-        # wsjtx.send(location(grid))
-        pass
+        self.trigger_event(Callback.WSJTX_SEND, location(settings.grid))
 
     def process(self, id_, data):
         match id_:
-            case _GPS_ID:
+            case ProcessID.GPS:
                 self.process_gps(data)
+            case ProcessID.WSJTX:
+                self.process_wsjtx(data)
 
     def process_gps(self, data):
         for d in data.strip().split(b'\n'):
@@ -99,7 +109,7 @@ class _Model:
                 match j['class']:
                     case 'VERSION':
                         self.trigger_event(
-                            'gps_send',
+                            Callback.GPS_SEND,
                             b'?WATCH={"enable":true,"json":true}')
                     case 'TPV':
                         if self.message > '':
@@ -110,11 +120,61 @@ class _Model:
                         else:
                             grid = None
                         self.trigger_event(
-                            'gps_decode',
+                            Callback.GPS_DECODE,
                             {'time': None, 'grid': grid})
             except JSONDecodeError:
                 pass
 
+    def process_decodes(self):
+        if len(self.r) == 0:
+            return
+        pota = []
+        cq = []
+        call = []
+        for i in self.r:
+            dx_call = None
+            msg_parse = i.message.split(' ')
+            if msg_parse[0] == 'CQ':
+                if msg_parse[1] == 'POTA':
+                    dx_call = msg_parse[2]
+                    append = pota
+                else:
+                    dx_call = msg_parse[1]
+                    append = cq
+            elif msg_parse[0] == settings.de_call:
+                dx_call = msg_parse[1]
+                append = call
+            else:
+                continue
+            if dx_call is not None:    
+                if wsjtx_db.exists(dx_call, i) is None:
+                    append.append(i)                   
+        pota.sort(key=lambda a: a.snr, reverse=True)
+        call.sort(key=lambda a: a.snr, reverse=True)
+        cq.sort(key=lambda a: a.snr, reverse=True)
+        self.trigger_event(Callback.WSJTX_CALLS, (pota, call, cq))
+
+
+    def process_wsjtx(self, data):
+        d = parse(data)
+        msg_id = d.msg_id
+        match msg_id:
+            case 0:  # HEARTBEAT
+                self.trigger_event(Callback.WSJTX_SEND, heartbeat())
+            case 1:  # STATUS
+                # print(f'{timestamp()} decoding: {d.decoding}')
+                self.settings.update_status(d)
+                self.trigger_event(Callback.WSJTX_STATUS, d)
+                if not d.decoding:
+                    self.process_decodes()
+                    self.r = []
+            case 2:  # DECODE
+                self.r.append(d)
+            case 5:  # LOG
+                wsjtx_db.add(d)
+            case 12:  # ADIF
+                wsjtx_db.add_log(d.text)
+        
 
     def close(self):
         self.running = False

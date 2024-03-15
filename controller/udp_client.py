@@ -3,6 +3,7 @@ from struct import pack
 from threading import Thread
 
 from model.model import model
+from model.event import ProcessID, Callback
 
 class UDPClientController:
     def __init__(self, id_, address, send_event):
@@ -50,8 +51,8 @@ class UDPClientController:
                 if self.do_close:
                     self.do_close = False
                     break
-                if len (data := self.sock.recv(2048)) > 0:
-                    model.process(self.id_, data)
+                data = self.sock.recv(2048)
+                model.process(self.id_, data)
             except TimeoutError:
                 continue
             except OSError as e:
@@ -61,6 +62,7 @@ class UDPClientController:
 
 
 if __name__ == '__main__':
-    gps = UDPClientController('gps', model.settings.gps_address, 'gps_send')
+    gps = UDPClientController(ProcessID.GPS,
+                              model.settings.gps_address,
+                              Callback.GPS_SEND)
     gps.start()
-    gps.stop()
