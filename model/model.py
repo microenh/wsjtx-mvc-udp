@@ -7,19 +7,23 @@ try:
     from wsjtx_db import WsjtxDb
     from utility import grid_square
     from event import ProcessID, Callback
-    from tx_msg import heartbeat
+    from tx_msg import heartbeat, reply, halt_tx, location
+    from rx_msg import parse
 except ModuleNotFoundError:
     from model.settings import Settings
     from model.wsjtx_db import WsjtxDb
     from model.utility import grid_square
     from model.event import ProcessID, Callback
     from model.tx_msg import heartbeat, reply, halt_tx, location
+    from model.rx_msg import parse
+
 
 class _Model:
     def  __init__(self):
         self.message = ''
+        self.r = []
         self.settings = Settings()
-        self.wsjtx_db = WsjtxDb(self.settings.dbn, self.settings.adifn)
+        self.wsjtx_db = WsjtxDb(self.settings)
         self.lock = Lock()
         self.running = True
         self.queue = Queue()
@@ -33,7 +37,8 @@ class _Model:
             case ProcessID.GPS:
                 self.trigger_event(Callback.GPS_OPEN, open_)
             case ProcessID.WSJTX:
-                print('WSJTX: %s' % ('open' if open_ else 'close'))
+                pass
+                # print('WSJTX: %s' % ('open' if open_ else 'close'))
             
 
     def add_event_listener(self, event, fn):
@@ -55,18 +60,18 @@ class _Model:
         except KeyError:
             pass
 
-    def push(self, id_, data=None):
-        if self.running:
-            with self.lock:
-                self.queue.put((id_, data))
-                self.event_generate()
-
-    def pop(self):
-        if self.running:
-            try:
-                return self.queue.get_nowait()
-            except Empty:
-                pass
+##    def push(self, id_, data=None):
+##        if self.running:
+##            with self.lock:
+##                self.queue.put((id_, data))
+##                self.event_generate()
+##
+##    def pop(self):
+##        if self.running:
+##            try:
+##                return self.queue.get_nowait()
+##            except Empty:
+##                pass
 
     def save_main_window_position(self, x, y):
         self.settings.config['default']['main_x'] = str(x)
@@ -141,13 +146,13 @@ class _Model:
                 else:
                     dx_call = msg_parse[1]
                     append = cq
-            elif msg_parse[0] == settings.de_call:
+            elif msg_parse[0] == self.settings.de_call:
                 dx_call = msg_parse[1]
                 append = call
             else:
                 continue
             if dx_call is not None:    
-                if wsjtx_db.exists(dx_call, i) is None:
+                # if self.wsjtx_db.exists(dx_call, i) is None:
                     append.append(i)                   
         pota.sort(key=lambda a: a.snr, reverse=True)
         call.sort(key=lambda a: a.snr, reverse=True)

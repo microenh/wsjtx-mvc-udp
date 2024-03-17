@@ -58,7 +58,7 @@ class MainController:
                 self.view.gps_text.set(f'GRID: {g}      TIME: {t}')
                 self.update_gps_buttons(dg, tg)
 
-    def wsjtx_status(data):
+    def wsjtx_status(self, d):
         if self.view is not None:
             self.update_rx_tx(d.transmitting, d.tx_msg)
 

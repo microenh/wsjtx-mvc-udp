@@ -11,8 +11,8 @@ except ModuleNotFoundError:
     from model.rx_msg import to_datetime
 
 class WsjtxDb:
-    def __init__(self, dbn, adifn):
-        self.adifn = adifn
+    def __init__(self, settings):
+        self.settings = settings
         CREATE_TABLES = ("""
             create table if not exists qsos (
                 time_off int,
@@ -54,10 +54,10 @@ class WsjtxDb:
                 band);
             """,
         )
-        self.con = sqlite3.connect(dbn)
-        for i in CREATE_TABLES:
-            self.con.execute(i)
-        self.con.commit()
+        with sqlite3.connect(self.settings.dbn) as con:
+            for i in CREATE_TABLES:
+                con.execute(i)
+            con.commit()
                 
     def exists(self, dx_call, d):
         QUERY = """select exists(
@@ -69,14 +69,15 @@ class WsjtxDb:
                 and park=?
                 and shift=?
             )"""
-        return self.con.execute(QUERY, (
-            dx_call,
-            d.mode,
-            settings.ordinal,
-            settings.band,
-            settings.park,
-            settings.shift,
-        )).fetchone()        
+        with sqlite3.connect(self.settings.dbn) as con:
+            return con.execute(QUERY, (
+                dx_call,
+                d.mode,
+                self.settings.ordinal,
+                self.settings.band,
+                self.settings.park,
+                self.settings.shift,
+            )).fetchone()        
 
     def add(self, d):
         QUERY = """insert or replace into qsos(
@@ -103,37 +104,38 @@ class WsjtxDb:
                 shift
         ) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"""
         
-        self.con.execute(QUERY, (
-            to_datetime(*d.time_off).timestamp(),
-            d.dx_call,
-            d.dx_grid,
-            d.tx_freq,
-            d.mode,
-            d.rst_sent,
-            d.rst_recv,
-            d.tx_power,
-            d.comments,
-            d.name,
-            to_datetime(*d.time_on).timestamp(),
-            d.op_call,
-            d.my_call,
-            d.my_grid,
-            d.ex_sent,
-            d.ex_recv,
-            d.adif_md,
-            settings.ordinal,
-            settings.band,
-            settings.park,
-            settings.shift,
-        ))
-        self.con.commit()
+        with sqlite3.connect(self.settings.dbn) as con:
+            con.execute(QUERY, (
+                to_datetime(*d.time_off).timestamp(),
+                d.dx_call,
+                d.dx_grid,
+                d.tx_freq,
+                d.mode,
+                d.rst_sent,
+                d.rst_recv,
+                d.tx_power,
+                d.comments,
+                d.name,
+                to_datetime(*d.time_on).timestamp(),
+                d.op_call,
+                d.my_call,
+                d.my_grid,
+                d.ex_sent,
+                d.ex_recv,
+                d.adif_md,
+                self.settings.ordinal,
+                self.settings.band,
+                self.settings.park,
+                self.settings.shift,
+            ))
+            con.commit()
 
     def add_log(self, text):
-        exists = os.path.isfile(self.ADIFN)
+        exists = os.path.isfile(self.settings.adifn)
         with open(settings.adifn, 'a') as f:
             if exists:
                 text = text.split('<EOH>\n')[1]
             f.write(text)
 
     def close(self):
-        self.con.close()
+        pass

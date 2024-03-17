@@ -13,7 +13,7 @@ APP_NAME = 'wsjtx-udp'
 class Settings:
     
     def __init__(self):
-
+        self.park = ''
         # compute data folder in user local storage
         p = os.getenv('LOCALAPPDATA')
         if p is None:
@@ -92,7 +92,7 @@ class Settings:
         self.ordinal = n.toordinal()
         self.de_call = d.de_call.upper()
         self.grid = d.de_grid
-        self.shift = calc_shift(self.grid, n.hour) if settings.park > '' else ''
+        self.shift = calc_shift(self.grid, n.hour) if self.park > '' else ''
         self.mode = d.mode
 
     def save(self):

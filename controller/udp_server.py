@@ -42,7 +42,7 @@ class UDPServerController:
         while model.running:
             try:
                 data, self.addr = self.sock.recvfrom(1024)
-                self.process(data)
+                model.process(ProcessID.WSJTX, data)
             except TimeoutError:
                 # print('timeout')
                 continue
