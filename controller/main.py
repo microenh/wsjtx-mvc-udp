@@ -23,7 +23,8 @@ class MainController:
         model.add_event_listener(Callback.GPS_OPEN, self.gps_open)
                          
         self.view.protocol('WM_DELETE_WINDOW', model.notify_quit)
-        
+
+        self.view.park_button.configure(command=self.park)
         self.view.time_button.configure(command=self.time)
         self.view.socket_button.configure(command=self.socket)
         self.view.grid_button.configure(command=self.do_grid)
@@ -67,6 +68,9 @@ class MainController:
 
     def time(self):
         model.set_time()
+
+    def park(self):
+        model.set_park(self.view.park.get())
 
     def socket(self):
         self.update_calls()

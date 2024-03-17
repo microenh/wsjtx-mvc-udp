@@ -81,7 +81,8 @@ class _Model:
     def main_window_setup(self):
         return (int(self.settings.config['default']['main_x']),
                 int(self.settings.config['default']['main_y']),
-                self.settings.config['default']['theme'])
+                self.settings.config['default']['theme'],
+                self.settings.config['default']['park'])
 
     def do_call(self, msg):
         """ activate call in WSJT-X """
@@ -99,6 +100,9 @@ class _Model:
     def set_grid(self):
         """ set WSJT-X grid to GPS grid """
         self.trigger_event(Callback.WSJTX_SEND, location(settings.grid))
+
+    def set_park(self, park):
+        self.settings.config['default']['park'] = park
 
     def process(self, id_, data):
         match id_:

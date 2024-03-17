@@ -6,7 +6,7 @@ from PIL import Image, ImageTk
 class MainView(tk.Tk):
     """Main class"""
 
-    def __init__(self, x, y, theme):
+    def __init__(self, x, y, theme, park):
         super().__init__()
         # self.screenName = ':0.0'
         # if os.environ.get('DISPLAY', '') == '':
@@ -14,6 +14,7 @@ class MainView(tk.Tk):
 
         # self.after_idle(lambda: self.eval('tk::PlaceWindow . center'))
         self.setup_variables()
+        self.park.set(park)
         style = ttk.Style(self)
         style.theme_use(theme)
         self.layout(x, y)
@@ -57,7 +58,10 @@ class MainView(tk.Tk):
         f = ttk.Frame(bg)
         f.pack(fill='x', pady=10)
         ttk.Label(f, text="Park").pack(side='left')
-        ttk.Entry(f, textvariable=self.park).pack(fill='x', padx=(10,0))
+        e = ttk.Entry(f, textvariable=self.park)
+        e.pack(side='left', fill='x', expand=True, padx=(10,0))
+        self.park_button = ttk.Button(f, text="Update")
+        self.park_button.pack(side='left', padx=(10,0))
 
         f = ttk.Frame(bg)
         f.pack(fill='x', pady=(0,10))
@@ -91,7 +95,7 @@ class MainView(tk.Tk):
 
 
 if __name__ == '__main__':
-    m = MainView(20, 20, 'default')
+    m = MainView(20, 20, 'default', '')
     m.protocol('WM_DELETE_WINDOW', m.quit)
     m.mainloop()
     m.destroy()

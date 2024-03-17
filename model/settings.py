@@ -38,6 +38,8 @@ class Settings:
         else:
             self.config = ConfigParser()
             self.config.read(self.inin)
+            # print(self.inin)
+            # print(list(self.config['default'].keys()))
 
         self.platform = ''
         if os.name == 'nt':
@@ -61,7 +63,8 @@ class Settings:
             'wsjtx_host': '127.0.0.1',
             'wsjtx_port': '2237',
             'main_x': '20',
-            'main_y': '20'
+            'main_y': '20',
+            'park': '',
         }
         self.config['rpi'] = {
             'gps_host': '127.0.0.1',
