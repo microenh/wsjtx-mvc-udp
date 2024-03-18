@@ -21,6 +21,7 @@ except ModuleNotFoundError:
 class _Model:
     def  __init__(self):
         self.message = ''
+        self.grid = None
         self.r = []
         self.settings = Settings()
         self.wsjtx_db = WsjtxDb(self.settings)
@@ -60,30 +61,42 @@ class _Model:
         except KeyError:
             pass
 
-##    def push(self, id_, data=None):
-##        if self.running:
-##            with self.lock:
-##                self.queue.put((id_, data))
-##                self.event_generate()
-##
-##    def pop(self):
-##        if self.running:
-##            try:
-##                return self.queue.get_nowait()
-##            except Empty:
-##                pass
-
     def save_main_window_position(self, x, y):
         self.settings.config['default']['main_x'] = str(x)
         self.settings.config['default']['main_y'] = str(y)
 
     @property
-    def main_window_setup(self):
-        return (int(self.settings.config['default']['main_x']),
-                int(self.settings.config['default']['main_y']),
-                self.settings.config['default']['theme'],
-                self.settings.config['default']['park'])
+    def main_window_x(self):
+        return int(self.settings.config['default']['main_x'])
 
+    @main_window_x.setter
+    def main_window_x(self, value):
+        self.settings.config['default']['main_x'] = str(value)
+
+    @property
+    def main_window_y(self):
+        return int(self.settings.config['default']['main_y'])
+
+    @main_window_y.setter
+    def main_window_y(self, value):
+        self.settings.config['default']['main_y'] = str(value)
+
+    @property
+    def theme(self):
+        return self.settings.config['default']['theme']
+
+    @property
+    def park(self):
+        return self.settings.config['default']['park']
+
+    @park.setter
+    def park(self, value):
+        self.settings.config['default']['park'] = value
+
+    @property
+    def platform(self):
+        return self.settings.platform
+        
     def do_call(self, msg):
         """ activate call in WSJT-X """
         self.trigger_event(Callback.WSJTX_SEND, reply(msg))
@@ -99,7 +112,9 @@ class _Model:
 
     def set_grid(self):
         """ set WSJT-X grid to GPS grid """
-        self.trigger_event(Callback.WSJTX_SEND, location(settings.grid))
+        if self.grid is not None:
+            self.settings.grid = self.grid
+            self.trigger_event(Callback.WSJTX_SEND, location(self.grid))
 
     def set_park(self, park):
         self.settings.config['default']['park'] = park
@@ -126,6 +141,7 @@ class _Model:
                             self.message = ''
                         elif 'lat' in j:
                             grid = grid_square(j['lon'], j['lat'])[:6]
+                            self.grid = grid
                         else:
                             grid = None
                         self.trigger_event(
@@ -171,7 +187,6 @@ class _Model:
             case 0:  # HEARTBEAT
                 self.trigger_event(Callback.WSJTX_SEND, heartbeat())
             case 1:  # STATUS
-                # print(f'{timestamp()} decoding: {d.decoding}')
                 self.settings.update_status(d)
                 self.trigger_event(Callback.WSJTX_STATUS, d)
                 if not d.decoding:
@@ -180,9 +195,9 @@ class _Model:
             case 2:  # DECODE
                 self.r.append(d)
             case 5:  # LOG
-                wsjtx_db.add(d)
+                self.wsjtx_db.add(d)
             case 12:  # ADIF
-                wsjtx_db.add_log(d.text)
+                self.wsjtx_db.add_log(d.text)
         
 
     def close(self):

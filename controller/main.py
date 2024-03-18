@@ -13,9 +13,14 @@ class MainController:
     def __init__(self, id_):
 
         self.id_ = id_
+        self.win32 = model.platform == 'win32'
         self.has_gps = False
         self.last_decode_time = None
-        self.view = MainView(*model.main_window_setup)
+        self.view = MainView(model.main_window_x,
+                             model.main_window_y,
+                             model.theme,
+                             model.park,
+                             self.win32)
         model.add_event_listener(Callback.QUIT, lambda a: self.view.quit())
         model.add_event_listener(Callback.GPS_DECODE, self.gps_decode)
         model.add_event_listener(Callback.WSJTX_STATUS, self.wsjtx_status)
@@ -25,8 +30,9 @@ class MainController:
         self.view.protocol('WM_DELETE_WINDOW', model.notify_quit)
 
         self.view.park_button.configure(command=self.park)
-        self.view.time_button.configure(command=self.time)
-        self.view.socket_button.configure(command=self.socket)
+
+        if self.win32:
+            self.view.time_button.configure(command=self.time)
         self.view.grid_button.configure(command=self.do_grid)
         self.view.rx_tx_label.bind('<Double-1>', self.abort_tx)
         for c in (self.view.calls_pota,
@@ -47,7 +53,6 @@ class MainController:
             self.has_gps = open_
             if not open_:
                 self.view.gps_text.set('No GPS')
-            self.update_gps_buttons()
 
     def gps_decode(self, d):
         if self.view is not None:
@@ -55,9 +60,11 @@ class MainController:
                 self.view.gps_text.set(d)
             else:
                 g = 'N/A' if (dg := d['grid']) is None else dg
-                t = 'N/A' if (tg := d['time']) is None else '%02d:%02d:%02d' % tg
-                self.view.gps_text.set(f'GRID: {g}      TIME: {t}')
-                self.update_gps_buttons(dg, tg)
+                if self.win32:
+                    t = 'N/A' if (tg := d['time']) is None else '%02d:%02d:%02d' % tg
+                    self.view.gps_text.set(f'GRID: {g}      TIME: {t}')
+                else:
+                    self.view.gps_text.set(g)
 
     def wsjtx_status(self, d):
         if self.view is not None:
@@ -72,10 +79,7 @@ class MainController:
     def park(self):
         model.set_park(self.view.park.get())
 
-    def socket(self):
-        self.update_calls()
-        
-    def abort_tx(self):
+    def abort_tx(self, _):
         model.abort_tx()
 
     def do_call(self, _, entry):
@@ -85,17 +89,6 @@ class MainController:
             if index is not None:
                 msg = self.call_data[entry][index]
                 model.do_call(msg)
-
-    def update_gps_buttons(self, grid=None, time=None):
-        if self.view is not None:
-            if self.has_gps:
-                self.view.time_button.configure(text = 'TIME',
-                    state='disabled' if time is None else 'normal')
-                self.view.grid_button.configure(text = 'GRID',
-                    state='disabled' if grid is None else 'normal')                           
-            else:
-                self.view.time_button.configure(text = '', state='disabled')
-                self.view.grid_button.configure(text = 'GPS')
 
     def wsjtx_calls(self, d):
         if self.view is not None:
@@ -131,15 +124,14 @@ class MainController:
             if data is None:
                 break
             id_, d = data
-            # print('ID', id_)
             match id_:
                 case NotifyGUI.GPS_OPEN:
                     self.has_gps = True
-                    self.update_gps_buttons()
+                    self.view.gps_button.configure(state = 'normal')
                 case NotifyGUI.GPS_CLOSE:
                     self.view.gps_text.set('No GPS')
+                    self.view.gps_button.configure(state = 'disabled')
                     self.has_gps = False
-                    self.update_gps_buttons()
                      
     def close(self):
         model.save_main_window_position(self.view.winfo_x(),

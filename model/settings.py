@@ -13,25 +13,24 @@ APP_NAME = 'wsjtx-udp'
 class Settings:
     
     def __init__(self):
-        self.park = ''
         # compute data folder in user local storage
         p = os.getenv('LOCALAPPDATA')
         if p is None:
             s = sys.path[0]
             p = os.path.split(s)
-            if p[1] == 'model':
+            if p[1] in ('controller','model','view'):
                 p = p[0]
             else:
                 p = s
-            self.df = os.path.join(p, 'data')
+            df = os.path.join(p, 'data')
         else:
-            self.df = os.path.join(l, APP_NAME)
-        if not os.path.exists(self.df):
-            os.makedirs(self.df)
+            df = os.path.join(l, APP_NAME)
+        if not os.path.exists(df):
+            os.makedirs(df)
 
-        self.dbn = os.path.join(self.df, APP_NAME + '.sqlite')
-        self.adifn = os.path.join(self.df, APP_NAME + '.adi')
-        self.inin = os.path.join(self.df, APP_NAME + '.ini')
+        self.dbn = os.path.join(df, APP_NAME + '.sqlite')
+        self.adifn = os.path.join(df, APP_NAME + '.adi')
+        self.inin = os.path.join(df, APP_NAME + '.ini')
 
         if not os.path.exists(self.inin):
             self.defaults()
@@ -51,8 +50,8 @@ class Settings:
                 self.platform = 'posix'
                 
         
-        self.park = ''
         self.shift = ''
+        self.grid = None
         self.band = 0
         self.mode = None
 
@@ -94,8 +93,12 @@ class Settings:
         n = datetime.now(timezone.utc)
         self.ordinal = n.toordinal()
         self.de_call = d.de_call.upper()
-        self.grid = d.de_grid
-        self.shift = calc_shift(self.grid, n.hour) if self.park > '' else ''
+        if self.grid is None:
+            self.grid = d.de_grid
+
+        self.shift = (calc_shift(self.grid, n.hour)
+                      if self.config['default']['park'] > '' else '')
+        
         self.mode = d.mode
 
     def save(self):

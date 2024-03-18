@@ -6,25 +6,22 @@ from PIL import Image, ImageTk
 class MainView(tk.Tk):
     """Main class"""
 
-    def __init__(self, x, y, theme, park):
+    def __init__(self, x, y, theme, park, win32):
         super().__init__()
         # self.screenName = ':0.0'
         # if os.environ.get('DISPLAY', '') == '':
         #     os.environ.__setitem__('DISPLAY', ':0.0')
-
-        # self.after_idle(lambda: self.eval('tk::PlaceWindow . center'))
-        self.setup_variables()
-        self.park.set(park)
+        self.setup_variables(park)
         style = ttk.Style(self)
         style.theme_use(theme)
-        self.layout(x, y)
+        self.layout(x, y, win32)
 
-    def setup_variables(self):
+    def setup_variables(self, park):
         self.rx_tx = tk.StringVar()
         self.gps_text = tk.StringVar()
-        self.park = tk.StringVar()
+        self.park = tk.StringVar(value=park)
     
-    def layout(self, x, y):
+    def layout(self, x, y, win32):
         if x > self.winfo_screenwidth():
             x = 20
         if y > self.winfo_screenheight():
@@ -57,25 +54,21 @@ class MainView(tk.Tk):
 
         f = ttk.Frame(bg)
         f.pack(fill='x', pady=10)
-        ttk.Label(f, text="Park").pack(side='left')
+        self.park_button = ttk.Button(f, text="Park")
+        self.park_button.pack(side='left')
         e = ttk.Entry(f, textvariable=self.park)
         e.pack(side='left', fill='x', expand=True, padx=(10,0))
-        self.park_button = ttk.Button(f, text="Update")
-        self.park_button.pack(side='left', padx=(10,0))
 
         f = ttk.Frame(bg)
         f.pack(fill='x', pady=(0,10))
-        ttk.Label(f, text='GPS').pack(side='left')
+        self.grid_button = ttk.Button(f, text='GPS')
+        self.grid_button.pack(side='left')
         ttk.Label(f, textvariable=self.gps_text).pack(side='left', fill='x', padx=(10,0))
         
-        self.socket_button = ttk.Button(f, text='SOCKET')
-        self.socket_button.pack(side='right')
+        if win32:
+            self.time_button = ttk.Button(f)
+            self.time_button.pack(side='right', padx=(0,10))
         
-        self.time_button = ttk.Button(f)
-        self.time_button.pack(side='right', padx=(0,10))
-        
-        self.grid_button = ttk.Button(f)
-        self.grid_button.pack(side='right', padx=(0,10))
 
     def callentrybox(self, frame):
         f = ttk.Frame(frame)
@@ -95,7 +88,7 @@ class MainView(tk.Tk):
 
 
 if __name__ == '__main__':
-    m = MainView(20, 20, 'default', '')
+    m = MainView(20, 20, 'default', '', False)
     m.protocol('WM_DELETE_WINDOW', m.quit)
     m.mainloop()
     m.destroy()

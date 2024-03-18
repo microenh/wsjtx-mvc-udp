@@ -40,7 +40,6 @@ class UDPClientController:
         if not self.sock._closed:
             self.sock.sendall(data)
 
-
     def stop(self):
         if self.thread.is_alive():
             self.thread.join()
