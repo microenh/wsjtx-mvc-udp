@@ -14,3 +14,4 @@ class Callback(Enum):
     WSJTX_OPEN = auto()
     WSJTX_STATUS = auto()
     WSJTX_CALLS = auto()
+

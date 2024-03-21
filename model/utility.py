@@ -72,36 +72,6 @@ def todec(x,h):
         r = float(x[:(a:=-8)]) + (float(x[a:]) / 60.0)
         return r if h in 'NE' else -r
 
-def calc_shift(gs, h):
-    """
-    'e': early shift
-    'l': late shift
-    'r': regular shift
-    gs: grid_sqaure at least 'AA99'
-    h: hour after midnight UTC
-    """
-    a = calc_shift  # reference function 'static' variables
-    try:
-        if gs == a.gs and h == a.h:
-            return a.s
-    except AttributeError:
-        pass
-    a.h = h
-    a.gs = gs
-    lon, _ = lon_lat(gs)
-    adj = int(round(lon / 15))
-    h = (h + adj - 2) % 24
-    if h < 6:
-        a.s = 'e'
-    elif h < 16:
-        a.s = 'r'
-    else:
-        a.s = 'l'
-    # print(a.s)
-    return a.s
-
-
-
 def settimefromgps(day, t):
     if day > '' and time is not None:
         """

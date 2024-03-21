@@ -20,6 +20,7 @@ class MainController:
                              model.main_window_y,
                              model.theme,
                              model.park,
+                             model.shift,
                              self.win32)
         model.add_event_listener(Callback.QUIT, lambda a: self.view.quit())
         model.add_event_listener(Callback.GPS_DECODE, self.gps_decode)
@@ -31,15 +32,25 @@ class MainController:
 
         self.view.park_button.configure(command=self.park)
 
+        self.view.shift.bind('<<ComboboxSelected>>', self.shift)
+
         if self.win32:
             self.view.time_button.configure(command=self.time)
+        else:
+            self.view.time_button.configure(state = 'disabled')
+
+            
         self.view.grid_button.configure(command=self.do_grid)
         self.view.rx_tx_label.bind('<Double-1>', self.abort_tx)
-        for c in (self.view.calls_pota,
-                  self.view.calls_me,
-                  self.view.calls_cq):
-            c.bind('<Double-1>', lambda e: self.do_call(e, c))
-            c.bind('<Return>', lambda e: self.do_call(e, c))
+                    
+        self.view.calls_pota.bind('<Double-1>', self.do_call_pota)
+        self.view.calls_pota.bind('<Return>', self.do_call_pota)
+
+        self.view.calls_me.bind('<Double-1>', self.do_call_me)
+        self.view.calls_me.bind('<Return>', self.do_call_me)
+
+        self.view.calls_cq.bind('<Double-1>', self.do_call_cq)
+        self.view.calls_cq.bind('<Return>', self.do_call_cq)
 
         self.lookup = {self.view.calls_pota: {},
                        self.view.calls_me: {},
@@ -47,6 +58,24 @@ class MainController:
         self.call_data = {self.view.calls_pota: [],
                           self.view.calls_me: [],
                           self.view.calls_cq: []}
+
+    def do_call(self, entry):
+        sel = entry.selection()
+        if len(sel) > 0:
+            index = self.lookup[entry].get(sel[0])
+            if index is not None:
+                msg = self.call_data[entry][index]
+                model.do_call(msg)
+
+
+    def do_call_pota(self, e):
+        self.do_call(self.view.calls_pota)
+
+    def do_call_me(self, e):
+        self.do_call(self.view.calls_me)
+
+    def do_call_cq(self, e):
+        self.do_call(self.view.calls_cq)
 
     def gps_open(self, open_):
         if self.view is not None:
@@ -60,11 +89,9 @@ class MainController:
                 self.view.gps_text.set(d)
             else:
                 g = 'N/A' if (dg := d['grid']) is None else dg
-                if self.win32:
-                    t = 'N/A' if (tg := d['time']) is None else '%02d:%02d:%02d' % tg
-                    self.view.gps_text.set(f'GRID: {g}      TIME: {t}')
-                else:
-                    self.view.gps_text.set(g)
+                t = 'N/A' if (tg := d['time']) is None else tg
+                self.view.gps_text.set(g)
+                self.view.time_text.set(t)
 
     def wsjtx_status(self, d):
         if self.view is not None:
@@ -77,18 +104,21 @@ class MainController:
         model.set_time()
 
     def park(self):
-        model.set_park(self.view.park.get())
+        model.set_park(p := self.view.park.get())
+        if p == '':
+            self.view.shift_text.set(n := '')
+            model.shift = n
+            self.view.shift['state'] = 'disabled'
+        else:
+            self.view.shift['state'] = 'readonly'
+
+    def shift(self, _):
+        model.shift = self.view.shift_text.get()
+        self.view.shift.selection_clear()
 
     def abort_tx(self, _):
         model.abort_tx()
 
-    def do_call(self, _, entry):
-        sel = entry.selection()
-        if len(sel) > 0:
-            index = self.lookup[entry].get(sel[0])
-            if index is not None:
-                msg = self.call_data[entry][index]
-                model.do_call(msg)
 
     def wsjtx_calls(self, d):
         if self.view is not None:
@@ -128,9 +158,12 @@ class MainController:
                 case NotifyGUI.GPS_OPEN:
                     self.has_gps = True
                     self.view.gps_button.configure(state = 'normal')
+                    if self.win32:
+                        self.view.time_button.configure(state = 'normal')
                 case NotifyGUI.GPS_CLOSE:
                     self.view.gps_text.set('No GPS')
                     self.view.gps_button.configure(state = 'disabled')
+                    self.view.time_button.configure(state = 'disabled')
                     self.has_gps = False
                      
     def close(self):
@@ -141,10 +174,10 @@ class MainController:
 
 def run():
     gps = UDPClientController(ProcessID.GPS,
-                              model.settings.gps_address,
+                              model.gps_address,
                               Callback.GPS_SEND)
     wsjtx = UDPServerController(ProcessID.WSJTX,
-                               model.settings.wsjtx_address,
+                               model.wsjtx_address,
                                Callback.WSJTX_SEND)
     mc = MainController(ProcessID.MAIN)
     gps.start()

@@ -1,6 +1,6 @@
 """store/query logged contacts"""
-import os
 import sqlite3
+from os import path
 from datetime import datetime, timezone
 
 try:
@@ -11,8 +11,8 @@ except ModuleNotFoundError:
     from model.rx_msg import to_datetime
 
 class WsjtxDb:
-    def __init__(self, settings):
-        self.settings = settings
+    def __init__(self, model):
+        self.model = model
         CREATE_TABLES = ("""
             create table if not exists qsos (
                 time_off int,
@@ -54,10 +54,19 @@ class WsjtxDb:
                 band);
             """,
         )
-        with sqlite3.connect(self.settings.dbn) as con:
+        with sqlite3.connect(self.model.dbn) as con:
             for i in CREATE_TABLES:
                 con.execute(i)
             con.commit()
+
+    mode_lu = {'`': 'FST4',
+               '+': 'FT4',
+               '~': 'FT8',
+               '$': 'JT4',
+               '@': 'JT9',
+               '#': 'JT65',
+               ':': 'Q65',
+               '&': 'MSK144'}
                 
     def exists(self, dx_call, d):
         QUERY = """select exists(
@@ -69,15 +78,16 @@ class WsjtxDb:
                 and park=?
                 and shift=?
             )"""
-        with sqlite3.connect(self.settings.dbn) as con:
-            return con.execute(QUERY, (
+        with sqlite3.connect(self.model.dbn) as con:
+            r = con.execute(QUERY, (
                 dx_call,
-                d.mode,
-                self.settings.ordinal,
-                self.settings.band,
-                self.settings.park,
-                self.settings.shift,
-            )).fetchone()        
+                self.mode_lu.get(d.mode, ''),
+                self.model.ordinal,
+                self.model.band,
+                self.model.park,
+                self.model.shift,
+            )).fetchone()
+        return r[0]
 
     def add(self, d):
         QUERY = """insert or replace into qsos(
@@ -103,8 +113,8 @@ class WsjtxDb:
                 park,
                 shift
         ) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"""
-        
-        with sqlite3.connect(self.settings.dbn) as con:
+
+        with sqlite3.connect(self.model.dbn) as con:
             con.execute(QUERY, (
                 to_datetime(*d.time_off).timestamp(),
                 d.dx_call,
@@ -123,16 +133,16 @@ class WsjtxDb:
                 d.ex_sent,
                 d.ex_recv,
                 d.adif_md,
-                self.settings.ordinal,
-                self.settings.band,
-                self.settings.park,
-                self.settings.shift,
+                self.model.ordinal,
+                self.model.band,
+                self.model.park,
+                self.model.shift,
             ))
             con.commit()
 
     def add_log(self, text):
-        exists = os.path.isfile(self.settings.adifn)
-        with open(settings.adifn, 'a') as f:
+        exists = path.isfile(self.model.adifn)
+        with open(self.model.adifn, 'a') as f:
             if exists:
                 text = text.split('<EOH>\n')[1]
             f.write(text)
