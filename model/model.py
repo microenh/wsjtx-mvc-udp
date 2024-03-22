@@ -5,6 +5,9 @@ from threading import Lock
 from json import loads, JSONDecodeError
 from datetime import datetime, timezone
 
+# '2024-03-22T12:43:35.000Z'
+# '2024-03-22T12:43:35.000+00:00'
+
 try:
     from settings import Settings
     from wsjtx_db import WsjtxDb
@@ -194,7 +197,10 @@ class _Model:
                             else:
                                 grid = None
                             if 'time' in j:
-                                time = datetime.fromisoformat(j['time']).time()
+                                t = j['time']
+                                if t.endswith('Z'):
+                                    t = t[:-1] + '+00:00'
+                                time = datetime.fromisoformat(t).time()
                             else:
                                 time = None
                             self.trigger_event(
