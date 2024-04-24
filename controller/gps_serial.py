@@ -1,17 +1,23 @@
 from threading import Thread
 from serial import Serial, SerialException, PortNotOpenError, LF
 
-from library.manager import manager
+from model.model import model
 
-class SerialBase:
-    def __init__(self, port, baud, expected=LF):
+class GPSSerial:
+    def __init__(self, id_, port, send_event):
+        self.id_ = id_
         self.ser = Serial(None,
-                          baud,
+                          9600,
                           timeout=2.0,
                           write_timeout=1.0)
-        self.expected = expected
+        self.expected = LF
         self.ser.port = port
         self.thread = Thread()
+        model.add_event_listener(send_event, self.send)
+
+
+    def report(self, open_):
+        model.notify_state(self.id_, open_)        
 
     def start(self):
         if self.thread.is_alive():
@@ -24,9 +30,6 @@ class SerialBase:
         except SerialException:
             self.report(False)
             
-    def push(self, id_, data=None):
-        manager.push(id_, data)
-
     def stop(self):
         self.ser.close()
         if self.thread.is_alive():
@@ -35,15 +38,14 @@ class SerialBase:
     def send(self, data):
         if self.ser.is_open:
             try:
-                with manager.lock:
-                    self.ser.write(data)
+                self.ser.write(data)
             except SerialException:
                 self.ser.close()
 
     def run(self):
         expected = self.expected
         ser = self.ser
-        while manager.running:
+        while model.running:
             if not ser.is_open:
                 break
             try:
@@ -51,7 +53,7 @@ class SerialBase:
                 if data[-1:] != expected:
                     # print('runt')
                     continue
-                self.process(data)
+                model.process(self.id_, data)
             except (SerialException, TypeError):
                 ser.close()
                 break

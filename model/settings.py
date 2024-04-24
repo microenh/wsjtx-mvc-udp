@@ -4,6 +4,7 @@ from configparser import ConfigParser
 class Settings:
     def __init__(self, inin):
         self.inin = inin
+        # print(self.inin)
         if not path.exists(self.inin):
             self.defaults()
         else:
@@ -26,7 +27,7 @@ class Settings:
             'gps_port': '2947'
         }
         self.config['win32'] = {
-            'gps_port': 'COM5'
+            'gps_port': 'COM4'
         }
 
     def save(self):

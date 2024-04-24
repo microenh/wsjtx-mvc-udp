@@ -73,7 +73,7 @@ def todec(x,h):
         return r if h in 'NE' else -r
 
 def settimefromgps(day, t):
-    if day > '' and time is not None:
+    if day > '' and t is not None:
         """
         day: ddmmyy
         time: hhmmss.ss

@@ -5,13 +5,14 @@ from view.main import MainView
 try:
     from udp_client import UDPClientController
     from udp_server import UDPServerController
+    from gps_serial import GPSSerial
 except ModuleNotFoundError:
     from controller.udp_client import UDPClientController
     from controller.udp_server import UDPServerController
+    from controller.gps_serial import GPSSerial
 
 class MainController:
     def __init__(self, id_):
-
         self.id_ = id_
         self.win32 = model.platform == 'win32'
         self.has_gps = False
@@ -119,7 +120,6 @@ class MainController:
     def abort_tx(self, _):
         model.abort_tx()
 
-
     def wsjtx_calls(self, d):
         if self.view is not None:
             a = d[0] + d[1] + d[2]
@@ -173,9 +173,15 @@ class MainController:
         self.view = None
 
 def run():
-    gps = UDPClientController(ProcessID.GPS,
-                              model.gps_address,
-                              Callback.GPS_SEND)
+    if model.platform == 'win32':
+        # print(model.gps_serial_address)
+        gps = GPSSerial(ProcessID.GPS_SERIAL,
+                        model.gps_serial_address,
+                        Callback.GPS_SERIAL_SEND)
+    else:
+        gps = UDPClientController(ProcessID.GPS,
+                                  model.gps_address,
+                                  Callback.GPS_SEND)
     wsjtx = UDPServerController(ProcessID.WSJTX,
                                model.wsjtx_address,
                                Callback.WSJTX_SEND)
@@ -184,9 +190,9 @@ def run():
     wsjtx.start()
     mc.view.mainloop()
     mc.close()
-    model.close()
     gps.stop()
     wsjtx.stop()
+    model.close()
 
 if __name__ == '__main__':
     run()        

@@ -76,9 +76,9 @@ class MainView(tk.Tk):
         self.time_button.pack(side='left', padx=(10,0))
         ttk.Label(f, textvariable=self.time_text).pack(side='left', fill='x', padx=(10,0))
         
-        if win32:
-            self.time_button = ttk.Button(f)
-            self.time_button.pack(side='right', padx=(0,10))
+##        if win32:
+##            self.time_button = ttk.Button(f)
+##            self.time_button.pack(side='right', padx=(0,10))
 
 
     def callentrybox(self, frame):

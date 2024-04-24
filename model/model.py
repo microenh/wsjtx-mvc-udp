@@ -11,14 +11,14 @@ from datetime import datetime, timezone
 try:
     from settings import Settings
     from wsjtx_db import WsjtxDb
-    from utility import grid_square
+    from utility import grid_square, timefromgps, todec, settimefromgps
     from event import ProcessID, Callback
     from tx_msg import heartbeat, reply, halt_tx, location
     from rx_msg import parse
 except ModuleNotFoundError:
     from model.settings import Settings
     from model.wsjtx_db import WsjtxDb
-    from model.utility import grid_square
+    from model.utility import grid_square, timefromgps, todec, settimefromgps
     from model.event import ProcessID, Callback
     from model.tx_msg import heartbeat, reply, halt_tx, location
     from model.rx_msg import parse
@@ -34,6 +34,7 @@ class _Model:
         self.mode = None
         self.ordinal = 0
         self.de_call = ''
+        self.update_time_request = False
         
         self.r = []
         self.calc_data_paths()
@@ -68,7 +69,7 @@ class _Model:
                 p = s
             df = os.path.join(p, 'data')
         else:
-            df = os.path.join(l, APP_NAME)
+            df = os.path.join(p, APP_NAME)
         if not os.path.exists(df):
             os.makedirs(df)
 
@@ -82,7 +83,7 @@ class _Model:
 
     def notify_state(self, id_, open_):
         match id_:
-            case ProcessID.GPS:
+            case ProcessID.GPS | ProcessID.GPS_SERIAL:
                 self.trigger_event(Callback.GPS_OPEN, open_)
             case ProcessID.WSJTX:
                 pass
@@ -151,7 +152,7 @@ class _Model:
 
     def set_time(self):
         """ set current system time to GPS time """
-        pass
+        self.update_time_request = True
 
     @property
     def shift(self):
@@ -174,6 +175,8 @@ class _Model:
         match id_:
             case ProcessID.GPS:
                 self.process_gps(data)
+            case ProcessID.GPS_SERIAL:
+                self.process_gps_serial(data)
             case ProcessID.WSJTX:
                 self.process_wsjtx(data)
 
@@ -208,6 +211,32 @@ class _Model:
                                 {'time': time, 'grid': grid})
             except JSONDecodeError:
                 pass
+
+    def process_gps_serial(self, data):
+        a = data.decode().strip().split(',')
+        match a[0]:
+            case '$GPRMC':
+                _, utc, _, la, la_dir, lo, lo_dir, _, _, dt = a[:10]
+                tm = timefromgps(utc)
+                lat = todec(la, la_dir)
+                lon = todec(lo, lo_dir)
+                grid = grid_square(lon,lat)
+                if grid is None:
+                    self.grid = None
+                else:
+                    self.grid = grid[:6]
+                if self.update_time_request:
+                    self.update_time_request = False
+                    self.message = settimefromgps(dt, tm)
+                if self.message > '':
+                    self.trigger_event(
+                        Callback.GPS_DECODE,
+                        {'time': self.message, 'grid': self.grid})
+                    self.message = ''
+                else:
+                    self.trigger_event(
+                        Callback.GPS_DECODE,
+                        {'time': tm, 'grid': self.grid})
 
     def process_decodes(self):
         if len(self.r) == 0:
@@ -275,12 +304,12 @@ class _Model:
 
     @property
     def gps_address(self):
-        if self.platform in ('rpi','posix'):
-            return (self.settings.config['rpi']['gps_host'],
-                    int(self.settings.config['rpi']['gps_port']))
-        else:
-            return self.settings.config['win32']['gps_port']
+        return (self.settings.config['rpi']['gps_host'],
+                int(self.settings.config['rpi']['gps_port']))
 
+    @property
+    def gps_serial_address(self):
+        return self.settings.config['win32']['gps_port']
 
 
     def close(self):
