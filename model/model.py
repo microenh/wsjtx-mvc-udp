@@ -238,7 +238,8 @@ class _Model:
                 else:
                     self.trigger_event(
                         Callback.GPS_DECODE,
-                        {'time': tm, 'grid': self.grid})
+                        {'time': f'{tm[0]:02d}:{tm[1]:02d}:{tm[2]:02d}',
+                         'grid': self.grid})
 
     def process_decodes(self):
         if len(self.r) == 0:
@@ -315,6 +316,7 @@ class _Model:
 
 
     def close(self):
+        self.running = False
         self.settings.save()
         self.wsjtx_db.close()
         # print('model closed')
