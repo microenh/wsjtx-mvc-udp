@@ -6,15 +6,14 @@ from model.model import model
 from model.event import ProcessID, Callback
 
 class UDPClientController:
-    def __init__(self, id_, address, send_event):
-        self.id_ = id_
-        self.address = address
+    def __init__(self):
+        self.address = model.gps_address
         self.thread = Thread()
         self.do_close = False
-        model.add_event_listener(send_event, self.send)
+        model.add_event_listener(Callback.GPS_SEND, self.send)
 
     def report(self, open_):
-        model.notify_state(self.id_, open_)        
+        model.notify_state(ProcessID.GPS, open_)        
 
     def close_socket(self):
         try:
@@ -51,7 +50,7 @@ class UDPClientController:
                     self.do_close = False
                     break
                 data = self.sock.recv(2048)
-                model.process(self.id_, data)
+                model.process(ProcessID.GPS, data)
             except TimeoutError:
                 continue
             except OSError as e:

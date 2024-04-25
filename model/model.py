@@ -79,15 +79,17 @@ class _Model:
         
 
     def notify_quit(self):
+        self.running = False
         self.trigger_event(Callback.QUIT)
+        self._event_listeners.clear()
 
     def notify_state(self, id_, open_):
         match id_:
             case ProcessID.GPS | ProcessID.GPS_SERIAL:
                 self.trigger_event(Callback.GPS_OPEN, open_)
             case ProcessID.WSJTX:
-                pass
                 # print('WSJTX: %s' % ('open' if open_ else 'close'))
+                pass
             
 
     def add_event_listener(self, event, fn):
@@ -313,8 +315,8 @@ class _Model:
 
 
     def close(self):
-        self.running = False
         self.settings.save()
         self.wsjtx_db.close()
+        # print('model closed')
 
 model = _Model()

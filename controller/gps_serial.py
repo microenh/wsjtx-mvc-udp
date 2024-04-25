@@ -1,23 +1,23 @@
 from threading import Thread
 from serial import Serial, SerialException, PortNotOpenError, LF
+from model.event import ProcessID, Callback
 
 from model.model import model
 
 class GPSSerial:
-    def __init__(self, id_, port, send_event):
-        self.id_ = id_
+    def __init__(self):
         self.ser = Serial(None,
                           9600,
                           timeout=2.0,
                           write_timeout=1.0)
         self.expected = LF
-        self.ser.port = port
+        self.ser.port = model.gps_serial_address
         self.thread = Thread()
-        model.add_event_listener(send_event, self.send)
+        model.add_event_listener(Callback.GPS_SERIAL_SEND, self.send)
 
 
     def report(self, open_):
-        model.notify_state(self.id_, open_)        
+        model.notify_state(ProcessID.GPS_SERIAL, open_)        
 
     def start(self):
         if self.thread.is_alive():
@@ -53,7 +53,7 @@ class GPSSerial:
                 if data[-1:] != expected:
                     # print('runt')
                     continue
-                model.process(self.id_, data)
+                model.process(ProcessID.GPS_SERIAL, data)
             except (SerialException, TypeError):
                 ser.close()
                 break

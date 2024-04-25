@@ -12,8 +12,7 @@ except ModuleNotFoundError:
     from controller.gps_serial import GPSSerial
 
 class MainController:
-    def __init__(self, id_):
-        self.id_ = id_
+    def __init__(self):
         self.win32 = model.platform == 'win32'
         self.has_gps = False
         self.last_decode_time = None
@@ -23,7 +22,7 @@ class MainController:
                              model.park,
                              model.shift,
                              self.win32)
-        model.add_event_listener(Callback.QUIT, lambda a: self.view.quit())
+        model.add_event_listener(Callback.QUIT, self.do_quit)
         model.add_event_listener(Callback.GPS_DECODE, self.gps_decode)
         model.add_event_listener(Callback.WSJTX_STATUS, self.wsjtx_status)
         model.add_event_listener(Callback.WSJTX_CALLS, self.wsjtx_calls)
@@ -60,6 +59,9 @@ class MainController:
                           self.view.calls_me: [],
                           self.view.calls_cq: []}
 
+    def do_quit(self, _):
+        self.view.quit()
+
     def do_call(self, entry):
         sel = entry.selection()
         if len(sel) > 0:
@@ -81,8 +83,7 @@ class MainController:
     def gps_open(self, open_):
         if self.view is not None:
             self.has_gps = open_
-            if not open_:
-                self.view.gps_text.set('No GPS')
+            self.view.gps_text.set('GPS' if open_ else 'No GPS')
 
     def gps_decode(self, d):
         if self.view is not None:
@@ -99,7 +100,9 @@ class MainController:
             self.update_rx_tx(d.transmitting, d.tx_msg)
 
     def do_grid(self):
-        model.set_grid()
+        if self.has_gps:
+            model.set_grid()
+            
 
     def time(self):
         model.set_time()
@@ -147,24 +150,6 @@ class MainController:
     def update_rx_tx(self, tx, msg=''):
         if self.view is not None:
             self.view.rx_tx.set('TX: ' + msg.strip() if tx else 'RX')
-
-    def notify(self, _):
-        while True:
-            data = model.pop()
-            if data is None:
-                break
-            id_, d = data
-            match id_:
-                case NotifyGUI.GPS_OPEN:
-                    self.has_gps = True
-                    self.view.gps_button.configure(state = 'normal')
-                    if self.win32:
-                        self.view.time_button.configure(state = 'normal')
-                case NotifyGUI.GPS_CLOSE:
-                    self.view.gps_text.set('No GPS')
-                    self.view.gps_button.configure(state = 'disabled')
-                    self.view.time_button.configure(state = 'disabled')
-                    self.has_gps = False
                      
     def close(self):
         model.save_main_window_position(self.view.winfo_x(),
@@ -174,18 +159,11 @@ class MainController:
 
 def run():
     if model.platform == 'win32':
-        # print(model.gps_serial_address)
-        gps = GPSSerial(ProcessID.GPS_SERIAL,
-                        model.gps_serial_address,
-                        Callback.GPS_SERIAL_SEND)
+        gps = GPSSerial()
     else:
-        gps = UDPClientController(ProcessID.GPS,
-                                  model.gps_address,
-                                  Callback.GPS_SEND)
-    wsjtx = UDPServerController(ProcessID.WSJTX,
-                               model.wsjtx_address,
-                               Callback.WSJTX_SEND)
-    mc = MainController(ProcessID.MAIN)
+        gps = UDPClientController()
+    wsjtx = UDPServerController()
+    mc = MainController()
     gps.start()
     wsjtx.start()
     mc.view.mainloop()
